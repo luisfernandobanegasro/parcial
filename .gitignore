@@ -1,0 +1,87 @@
+# --- Global ---
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.log
+.DS_Store
+Thumbs.db
+
+# --- Entornos / secretos ---
+.env
+*.env
+.env.*
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+db.sqlite3
+media/
+staticfiles/
+
+# --- Node / React ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+dist/
+build/
+.cache/
+.eslintcache
+.parcel-cache/
+
+# --- Flutter ---
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.metadata
+**/build/
+**/ios/Pods/
+**/android/.gradle/
+**/android/app/build/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.iml
+mobile.zip
+backend.zip mobile.zip
+node_modules/
+mobile/build/
+web/build/
+.venv/
+venv/
+*.pyc
+.env
+
+# No subir archivos comprimidos
+*.zip
+
+# No subir ZIPs
+*.zip
+
+# --- Windows reserved names ---
+NUL
+AUX
+PRN
+CON
+COM1
+COM2
+LPT1
+# --- Common ignores ---
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+web/build/
+web/.next/
+web/dist/
+*.log
+*.zip
+.DS_Store
