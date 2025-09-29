@@ -1,38 +1,28 @@
-.App {
-  text-align: center;
-}
+ /* Layout base */
+ body { background: #f5f7fb; }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
+ /* Sidebar con degradado */
+ .sidebar {
+   background: linear-gradient(180deg, #3b82f6 0%, #2b59c3 100%) !important;
+ }
+ .sidebar .nav-link, .sidebar .sidebar-brand-text { letter-spacing: .5px; }
+ .sidebar .nav-link.active, .sidebar .nav-link:hover {
+   background: rgba(255,255,255,.12);
+   border-radius: 12px;
+ }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
+ /* Card y sombras suaves */
+ .card { border: 0; border-radius: 14px; box-shadow: 0 8px 24px rgba(31,41,55,.08); }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
+ /* Botones compactos */
+ .btn { border-radius: 10px; }
 
-.App-link {
-  color: #61dafb;
-}
+ /* Tabla */
+ .table > :not(caption) > * > * { vertical-align: middle; }
+ .table thead th { color:#64748b; font-weight: 700; }
+ .badge { border-radius: 10px; padding:.4rem .55rem; }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
+ /* Responsivo: sidebar colapsable en móviles */
+ @media (max-width: 991px) {
+   #wrapper { flex-direction: column; }
+ }

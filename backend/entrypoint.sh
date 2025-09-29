@@ -1,11 +1,18 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
+# Ejecutar migraciones
 python manage.py migrate --noinput
 
-# (Opcional) solo primer despliegue si pones las 3 env vars
+# Crear superusuario si las variables existen
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ] && [ -n "$DJANGO_SUPERUSER_PASSWORD" ] && [ -n "$DJANGO_SUPERUSER_EMAIL" ]; then
   python manage.py createsuperuser --noinput || true
 fi
 
-exec gunicorn mysite.wsgi:application --bind 0.0.0.0:8080 --workers 3 --timeout 120
+# Iniciar Gunicorn con tmpdir especial
+PORT="${PORT:-8080}"
+exec gunicorn mysite.wsgi:application \
+  --bind 0.0.0.0:${PORT} \
+  --workers 3 \
+  --timeout 120 \
+  --worker-tmp-dir /gunicorn-tmp

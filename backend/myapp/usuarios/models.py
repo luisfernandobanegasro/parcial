@@ -31,7 +31,7 @@ class Usuarios(models.Model):
     )
 
     class Meta:
-        managed = False           # la tabla YA existe
+        managed = True           # la tabla YA existe
         db_table = 'usuarios'
 
     def __str__(self):

@@ -17,4 +17,17 @@ urlpatterns = [
 
     # 👇 tus endpoints de app
     path("api/", include("myapp.urls")),
+    
+    path("api/roles/", include("myapp.roles.urls")),
+    path("api/propiedades/", include("myapp.propiedades.urls")),  # si creaste urls en propiedades
+    path("api/residentes/", include("myapp.residentes.urls")),
+    path("api/finanzas/", include("myapp.finanzas.urls")),
+    path("api/comunicacion/", include("myapp.comunicacion.urls")),
+    path("api/reservas/", include("myapp.reservas.urls")),
+    path("api/seguridad/", include("myapp.seguridad.urls")),
+    path("api/mantenimiento/", include("myapp.mantenimiento.urls")),
 ]
+
+
+
+    # "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU4NTI4NTkxLCJpYXQiOjE3NTg1MjQ5OTIsImp0aSI6IjM0MGEyZDdjMTJlYjQ3ODU5MzllZDZhOTk2NDZmMjljIiwidXNlcl9pZCI6IjIifQ.e1sWdKCWaOCt0S9Xkh

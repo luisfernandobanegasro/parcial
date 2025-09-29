@@ -32,11 +32,26 @@ class MeView(APIView):
 
     def get(self, request):
         u = request.user
-        return Response({
-            "id": u.id,
+        groups_qs = u.groups.all().values("id", "name")
+        groups = [g["name"] for g in groups_qs]
+
+        # Si no quieres enviar permisos, elimina esta línea:
+        permissions = sorted(list(u.get_all_permissions()))
+
+        data = {
+            "id": u.id,                           # id de auth_user
             "username": u.get_username(),
-            "email": u.email or ""
-        })
+            "email": u.email or "",
+            "auth": {
+                "is_superuser": u.is_superuser,
+                "is_staff": u.is_staff,
+                "is_active": u.is_active,
+                "groups": groups,                 # ← el front usa estos NOMBRES
+                "groups_detail": list(groups_qs), # opcional: por si necesitas id
+                "permissions": permissions,       # opcional
+            },
+        }
+        return Response(data)
 
 
 # ============================================================

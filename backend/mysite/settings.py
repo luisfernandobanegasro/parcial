@@ -25,11 +25,23 @@ SECRET_KEY = os.getenv(
 )
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
 
+# Detrás de proxy/ELB: respeta HTTPS del balanceador
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if not DEBUG:
+    # Cookies solo por HTTPS en prod
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    # Seguridad básica (puedes endurecer más luego)
+    SECURE_HSTS_SECONDS = 0  # súbelo (p.ej. 31536000) cuando tengas HTTPS estable
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+
 # Por defecto abierto en dev; en prod usa DJANGO_ALLOWED_HOSTS=dom1,dom2
 _env_hosts = os.getenv("DJANGO_ALLOWED_HOSTS")
 ALLOWED_HOSTS = (
     [h.strip() for h in _env_hosts.split(",") if h.strip()]
-    if _env_hosts else ["*", "127.0.0.1", "localhost"]
+    if _env_hosts else ["condominio-env.eba-swap7msp.us-east-1.elasticbeanstalk.com","*", "127.0.0.1", "localhost"]
 )
 
 
@@ -49,15 +61,27 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "rest_framework_simplejwt.token_blacklist",
+    
 
     # Local
-    "myapp",
+    # "myapp",
+    'myapp.usuarios',
+    'myapp.roles',
+    "myapp.propiedades",
+    'myapp.residentes',
+    'myapp.finanzas',
+    'myapp.comunicacion',
+    'myapp.reservas',
+    'myapp.seguridad',
+    'myapp.mantenimiento',
 ]
 
 # ======================================
 # MIDDLEWARE
 # (CORS primero; WhiteNoise después de Security)
 # ======================================
+
+
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",   # CORS debe ir arriba
     "django.middleware.security.SecurityMiddleware",
@@ -130,8 +154,9 @@ USE_TZ = True
 # ======================================
 # STATIC & MEDIA
 # ======================================
-STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 # WhiteNoise: compresión + hash
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
@@ -145,20 +170,28 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ======================================
 from corsheaders.defaults import default_headers, default_methods
 
-# Lista de orígenes típica en dev
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",      # React
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",      # Flutter web
-    "http://127.0.0.1:8080",
-]
-# Permitir todo en dev si quieres activarlo por .env
-CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "true").lower() == "true"
+# Permitir credenciales si llegas a usarlas (no necesarias para JWT puro)
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = list(default_headers)
-CORS_ALLOW_METHODS = list(default_methods)
+CORS_ALLOW_METHODS  = list(default_methods)
 
-# CSRF (opcional por .env; usar URLs completas con http/https)
+# Permitir TODO solo si el env lo pide (en prod: false)
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL_ORIGINS", "false").lower() == "true"
+
+# Si te pasan una lista explícita por env, úsala, si no, defaults de dev
+_env_cors = os.getenv("CORS_ALLOWED_ORIGINS")
+if _env_cors:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _env_cors.split(",") if o.strip()]
+else:
+    # defaults útiles en local
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ]
+
+# CSRF (usa URLs completas con esquema)
 _env_csrf = os.getenv("CSRF_TRUSTED_ORIGINS")
 if _env_csrf:
     CSRF_TRUSTED_ORIGINS = [u.strip() for u in _env_csrf.split(",") if u.strip()]

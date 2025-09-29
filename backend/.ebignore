@@ -1,0 +1,35 @@
+# Ignorar entornos virtuales
+.venv/
+venv/
+ENV/
+
+# Ignorar caches y compilados
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignorar Git
+.git/
+.gitignore
+
+# Ignorar IDE/editor
+.vscode/
+.idea/
+
+# Ignorar archivos temporales
+*.log
+*.pot
+*.pyc
+.DS_Store
+Thumbs.db
+
+# Ignorar media local (no se sube a EB)
+media/
+
+# Ignorar estáticos recolectados (se generan con collectstatic en el server)
+staticfiles/
+
+# Bases de datos locales
+*.sqlite3
+db.sqlite3

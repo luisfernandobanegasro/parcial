@@ -1,53 +1,22 @@
-import { useState } from "react";
+import { NavLink } from "react-router-dom";
 
-export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-
+export default function SidebarLink({ to, icon, children, collapsed, onNavigate }) {
   return (
-    <ul
-      className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${
-        collapsed ? "toggled" : ""
-      }`}
-      id="accordionSidebar"
-      style={{ minHeight: "100vh" }}
+    <NavLink
+      to={to}
+      onClick={onNavigate}
+      className={({ isActive }) =>
+        [
+          "flex items-center gap-3 rounded-lg px-3 py-2 transition-colors",
+          "hover:bg-gray-100 dark:hover:bg-gray-800",
+          isActive
+            ? "bg-gray-100 dark:bg-gray-800 text-blue-600 dark:text-blue-300"
+            : "text-gray-700 dark:text-gray-200",
+        ].join(" ")
+      }
     >
-      {/* Brand */}
-      <a
-        className="sidebar-brand d-flex align-items-center justify-content-center"
-        href="#"
-      >
-        <div className="sidebar-brand-icon rotate-n-15">
-          <i className="fas fa-laugh-wink"></i>
-        </div>
-        <div className="sidebar-brand-text mx-3">SB Admin 2</div>
-      </a>
-
-      <hr className="sidebar-divider my-0" />
-
-      {/* Items */}
-      <li className="nav-item">
-        <a className="nav-link" href="#">
-          <i className="fas fa-fw fa-tachometer-alt"></i>
-          <span>Dashboard</span>
-        </a>
-      </li>
-
-      <li className="nav-item">
-        <a className="nav-link" href="#">
-          <i className="fas fa-fw fa-table"></i>
-          <span>Tables</span>
-        </a>
-      </li>
-
-      <hr className="sidebar-divider d-none d-md-block" />
-
-      {/* Toggle */}
-      <div className="text-center d-none d-md-inline">
-        <button
-          className="rounded-circle border-0"
-          onClick={() => setCollapsed(!collapsed)}
-        ></button>
-      </div>
-    </ul>
+      {icon ? <span className="w-5 h-5">{icon}</span> : null}
+      {!collapsed && <span className="truncate">{children}</span>}
+    </NavLink>
   );
 }
