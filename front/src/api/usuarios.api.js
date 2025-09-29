@@ -6,4 +6,5 @@ export const UsuariosAPI = {
   create: (data) => api.post("/usuarios/", data),
   update: (id, data) => api.patch(`/usuarios/${id}/`, data),
   remove: (id) => api.del(`/usuarios/${id}/`),
+  retrieve: (id) => api.get(`/usuarios/${id}/`),
 };

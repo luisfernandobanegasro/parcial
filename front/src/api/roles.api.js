@@ -1,27 +1,54 @@
 // src/api/roles.api.js
-import { api } from "./api";
+import { api, unwrapList } from "./api";
 
 export const RolesAPI = {
-  // ROLES
-  list:            () => api.get(`/roles/`),
-  create:          (name) => api.post(`/roles/`, { name }),
-  rename:          (id, name) => api.put(`/roles/${id}/`, { name }),
-  remove:          (id) => api.del(`/roles/${id}/`),
+  async list(params = {}) {
+    const data = await api.get("/roles/", params);
+    return unwrapList(data);                // <-- SIEMPRE array
+  },
 
-  // ROLES POR USUARIO
-  listByUsuario:   (usuarioId) => api.get(`/roles/usuarios/${usuarioId}/roles/`),
-  addToUsuario:    (usuarioId, rolId) => api.post(`/roles/usuarios/${usuarioId}/roles/`, { rol_id: rolId }),
-  removeFromUsuario:(usuarioId, rolId) => api.del(`/roles/usuarios/${usuarioId}/roles/${rolId}/`),
+  async create(name) {
+    return api.post("/roles/", { name });
+  },
 
-  // PERMISOS (catálogo + CRUD)
-  listPermissions: (params = {}) => api.get(`/roles/permisos/`, params),
-  syncPermissions: () => api.post(`/roles/permisos/sync/`),
-  createPermission:(payload) => api.post(`/roles/permisos/crud/`, payload),
-  updatePermission:(id, payload) => api.put(`/roles/permisos/crud/${id}/`, payload),
-  deletePermission:(id) => api.del(`/roles/permisos/crud/${id}/`),
+  async rename(id, newName) {
+    return api.patch(`/roles/${id}/`, { name: newName });
+  },
 
-  // PERMISOS DE UN GRUPO
-  listGroupPermissions:   (groupId) => api.get(`/roles/${groupId}/permisos/`),
-  addPermissionToGroup:   (groupId, permissionId) => api.post(`/roles/${groupId}/permisos/`, { permission_id: permissionId }),
-  removePermissionFromGroup:(groupId, permissionId) => api.del(`/roles/${groupId}/permisos/${permissionId}/`),
+  async remove(id) {
+    return api.delete(`/roles/${id}/`);
+  },
+
+  // ---- Permisos catálogo ----
+  async listPermissions(params = {}) {
+    const data = await api.get("/roles/permisos/", params);
+    return unwrapList(data);                // <-- array
+  },
+
+  async createPermission(payload) {
+    return api.post("/roles/permisos/", payload);
+  },
+
+  async deletePermission(id) {
+    return api.delete(`/roles/permisos/${id}/`);
+  },
+
+  async syncPermissions() {
+    // si tu backend expone POST /roles/permisos/sync/; si es distinto, ajusta aquí
+    return api.post("/roles/permisos/sync/", {});
+  },
+
+  // ---- Permisos por rol (grupo) ----
+  async listGroupPermissions(groupId, params = {}) {
+    const data = await api.get(`/roles/${groupId}/permisos/`, params);
+    return unwrapList(data);                // <-- array
+  },
+
+  async addPermissionToGroup(groupId, permId) {
+    return api.post(`/roles/${groupId}/permisos/`, { permission_id: permId });
+  },
+
+  async removePermissionFromGroup(groupId, permId) {
+    return api.delete(`/roles/${groupId}/permisos/${permId}/`);
+  },
 };

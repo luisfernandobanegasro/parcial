@@ -1,184 +1,169 @@
 // src/api/api.js
+import axios from "axios";
 
-/** =======================
- * Base URL (CRA / Vite) con fallbacks + auto-/api
- * ======================= */
-const VITE = (typeof import.meta !== "undefined" && import.meta.env) || {};
-let BASE =
-  VITE.VITE_API_BASE ||
-  process.env.REACT_APP_API_BASE ||
-  process.env.REACT_APP_API_URL ||
-  "";
+// Base URL (incluye protocolo + host + puerto del backend)
+export const API_BASE = process.env.REACT_APP_API_BASE || "http://127.0.0.1:8000";
 
-if (!BASE) {
-  const host = typeof window !== "undefined" ? window.location.hostname : "";
-  BASE = (host === "localhost" || host === "127.0.0.1")
-    ? "http://localhost:8000"
-    : "";
-}
-
-BASE = BASE.replace(/\/$/, "");
-if (!/\/api$/i.test(BASE)) BASE = `${BASE}/api`;
-
-/** =======================
- * Endpoints relativos a BASE
- * ======================= */
-const endpoints = {
-  token:   "/auth/token/",
-  refresh: "/auth/refresh/",
-  me:      "/users/me/",
+// --- token store simple ---
+export const store = {
+  get token() {
+    return (
+      localStorage.getItem("access") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("access") ||
+      ""
+    );
+  },
+  set token(v) {
+    if (v) localStorage.setItem("access", v);
+    else localStorage.removeItem("access");
+  },
+  get access() { return this.token; },
+  set access(v) { this.token = v; },
 };
 
-/** =======================
- * Tokens
- * ======================= */
-const store = {
-  get access()  { return localStorage.getItem("access"); },
-  get refresh() { return localStorage.getItem("refresh"); },
-  setTokens({ access, refresh }) {
-    if (access)  localStorage.setItem("access", access);
-    if (refresh) localStorage.setItem("refresh", refresh);
-  },
-  clear() {
-    localStorage.removeItem("access");
-    localStorage.removeItem("refresh");
-  },
-};
+// Axios con baseURL y auth automática
+const ax = axios.create({ baseURL: API_BASE, withCredentials: false });
 
-function authHeaders(auth = true) {
-  const h = { "Content-Type": "application/json" };
-  if (auth && store.access) h.Authorization = `Bearer ${store.access}`;
-  return h;
+ax.interceptors.request.use((config) => {
+  const t = store.token;
+  // debug token short (no exfiltrate in prod)
+  try { if (t) console.debug('API request with token:', (t||'').slice(0,10) + '...'); } catch(e) {}
+  if (t) {
+    config.headers = { ...(config.headers || {}), Authorization: `Bearer ${t}` };
+  }
+  return config;
+});
+
+// Interceptor de respuestas: en 401 limpiamos tokens y forzamos re-login/recarga
+ax.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    try {
+      const status = err?.response?.status;
+      if (status === 401) {
+        console.warn('API: 401 Unauthorized - clearing tokens and redirecting to /login');
+        try { localStorage.removeItem('access'); localStorage.removeItem('token'); sessionStorage.removeItem('access'); } catch (e) {}
+        // Intentar redirigir al login (ajusta si tu ruta es diferente)
+        try { window.location.href = '/login'; } catch (e) { window.location.reload(); }
+      }
+    } catch (e) {}
+    return Promise.reject(err);
+  }
+);
+
+// Prefijo /api
+function withApiPrefix(path) {
+  if (!path) return path;
+  if (path.startsWith("/api/")) return path;
+  if (path.startsWith("/")) return `/api${path}`;
+  return `/api/${path}`;
 }
 
-/** Helpers de query */
-function buildQuery(params) {
-  if (!params) return "";
-  const sp = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v === undefined || v === null || v === "") return;
-    sp.append(k, String(v));
-  });
-  const qs = sp.toString();
-  return qs ? `?${qs}` : "";
+// CRUD helpers (retornan data)
+async function get(path, params = {}) {
+  const res = await ax.get(withApiPrefix(path), { params });
+  return res.data;
+}
+async function post(path, body) {
+  const res = await ax.post(withApiPrefix(path), body);
+  return res.data;
+}
+async function patch(path, body) {
+  const res = await ax.patch(withApiPrefix(path), body);
+  return res.data;
+}
+async function del(path) {
+  const res = await ax.delete(withApiPrefix(path));
+  return res.data;
 }
 
-/** =======================
- * Core HTTP (fetch) con refresh automático
- * ======================= */
-async function http(path, { method = "GET", body, auth = true, params, headers } = {}) {
-  const url = `${BASE}${path}${buildQuery(params)}`;
-  let h = { ...authHeaders(auth), ...(headers || {}) };
+// --- Descargar/abrir archivos con AUTH ---
+function parseFilenameFromCD(cd) {
+  if (!cd) return null;
+  // Content-Disposition: attachment; filename="recibo_10.pdf"
+  const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)["']?/i.exec(cd);
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
-  let res = await fetch(url, {
-    method,
-    headers: h,
-    body: ["POST", "PUT", "PATCH"].includes(method) ? JSON.stringify(body ?? {}) : undefined,
-    mode: "cors",
-  });
+/**
+ * Descarga un recurso protegido (auth) y lo devuelve como Blob + filename detectado.
+ */
+async function getBlob(path) {
+  const res = await ax.get(withApiPrefix(path), { responseType: "blob" });
+  const type = res.headers?.["content-type"] || "application/octet-stream";
+  const blob = new Blob([res.data], { type });
+  const filename = parseFilenameFromCD(res.headers?.["content-disposition"]);
+  return { blob, filename };
+}
 
-  // Refresh si 401 y tenemos refresh
-  if (res.status === 401 && auth && store.refresh) {
-    const r = await fetch(`${BASE}${endpoints.refresh}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh: store.refresh }),
-      mode: "cors",
-    });
-    if (r.ok) {
-      const { access } = await r.json();
-      store.setTokens({ access, refresh: store.refresh });
+/**
+ * Abre un recurso protegido en una pestaña nueva (útil para PDFs).
+ * Si `inline` es false, fuerza descarga.
+ */
+async function openAuth(path, { inline = true, filename } = {}) {
+  const { blob, filename: detected } = await getBlob(path);
+  const url = window.URL.createObjectURL(blob);
 
-      h = { ...authHeaders(auth), ...(headers || {}) };
-      res = await fetch(url, {
-        method,
-        headers: h,
-        body: ["POST", "PUT", "PATCH"].includes(method) ? JSON.stringify(body ?? {}) : undefined,
-        mode: "cors",
-      });
-    } else {
-      store.clear();
-      throw new Error("Sesión expirada. Inicia sesión nuevamente.");
-    }
+  if (inline) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  } else {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename || detected || "archivo";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
-  if (!res.ok) throw await toError(res);
-  return parse(res);
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-async function toError(res) {
-  let msg = `HTTP ${res.status}`;
-  let payload = null;
+export const api = { get, post, patch, del, getBlob, openAuth };
+
+export function unwrapList(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.results)) return data.results;
+  return [];
+}
+
+// Auth helpers
+export async function login(a, b) {
+  let username, password;
+  if (typeof a === "object" && a !== null) {
+    ({ username, password } = a);
+  } else {
+    username = a; password = b;
+  }
+  const data = await post("auth/token/", { username, password });
+  const access = data?.access;
+  if (access) store.token = access;
   try {
-    payload = await res.clone().json();
-    msg =
-      payload?.detail ||
-      payload?.message ||
-      payload?.error ||
-      (Array.isArray(payload?.non_field_errors) ? payload.non_field_errors[0] : msg) ||
-      JSON.stringify(payload);
-  } catch {
-    try { msg = await res.clone().text(); } catch {}
-  }
-  const err = new Error(msg);
-  err.status = res.status;
-  err.response = { data: payload, status: res.status };
-  return err;
-}
-
-async function parse(res) {
-  if (res.status === 204) return null;
-  const ct = res.headers.get("Content-Type") || "";
-  if (ct.includes("application/json")) return res.json();
-  return res.text();
-}
-
-/** =======================
- * Auth helpers
- * ======================= */
-export async function login(arg1, arg2) {
-  const payload =
-    typeof arg1 === "object" && arg1 !== null
-      ? { username: arg1.username, password: arg1.password }
-      : { username: arg1, password: arg2 };
-
-  if (!payload.username || !payload.password) {
-    throw new Error("Usuario y contraseña son requeridos");
-  }
-
-  const data = await http(endpoints.token, { method: "POST", body: payload, auth: false });
-  store.setTokens(data);
+    console.debug(
+      "api.login: access saved?",
+      !!access,
+      "store.access:",
+      store.access ? store.access.slice(0, 10) + "..." : null
+    );
+  } catch {}
   return data;
 }
 
-export async function getMe() {
-  return http(endpoints.me);
-}
-
 export function clearTokens() {
-  store.clear();
+  try {
+    store.token = "";
+    localStorage.removeItem("token");
+    sessionStorage.removeItem("access");
+  } catch {}
 }
 
-/** =======================
- * Cliente CRUD genérico
- *  - Soporta api.get(path, { params })
- *  - O api.get(path, { q:..., page:... }) (lo trata como params igual)
- * ======================= */
-export const api = {
-  get: (path, opts = {}) =>
-    http(path, { method: "GET", params: opts.params ?? opts }),
+export function getAccess() {
+  return store.access;
+}
 
-  post: (path, body, opts = {}) =>
-    http(path, { method: "POST", body, ...(opts || {}) }),
+export async function getMe() {
+  return await get("me/");
+}
 
-  put: (path, body, opts = {}) =>
-    http(path, { method: "PUT", body, ...(opts || {}) }),
-
-  patch: (path, body, opts = {}) =>
-    http(path, { method: "PATCH", body, ...(opts || {}) }),
-
-  del: (path, opts = {}) =>
-    http(path, { method: "DELETE", params: opts.params ?? opts }),
-};
-
-export { endpoints, store, BASE };
+export default { API_BASE, store, api, unwrapList, login, getMe, clearTokens };

@@ -1,7 +1,12 @@
+# myapp/comunicacion/urls.py
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AvisoViewSet, AvisoAdjuntoViewSet, AvisoDestinatarioViewSet
+from .views import AvisoViewSet, LecturaViewSet
+
 router = DefaultRouter()
-router.register(r"avisos", AvisoViewSet)
-router.register(r"avisos-adjuntos", AvisoAdjuntoViewSet)
-router.register(r"avisos-destinatarios", AvisoDestinatarioViewSet)
-urlpatterns = router.urls
+router.register(r"avisos", AvisoViewSet, basename="avisos")
+router.register(r"lecturas", LecturaViewSet, basename="lecturas")
+
+urlpatterns = [
+    path("", include(router.urls)),
+]

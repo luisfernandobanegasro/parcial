@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import { NavLink } from "react-router-dom";
 
 export default function SidebarLink({ to, icon, children, collapsed, onNavigate }) {

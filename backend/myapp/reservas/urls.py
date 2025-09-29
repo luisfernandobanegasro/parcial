@@ -1,7 +1,12 @@
+# myapp/reservas/urls.py
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import AreaComunViewSet, ReservaViewSet, ReservaPagoViewSet
+from .views import AreaComunViewSet, ReservaViewSet   # 👈 solo estos dos
+
 router = DefaultRouter()
-router.register(r"areas-comunes", AreaComunViewSet)
-router.register(r"reservas", ReservaViewSet)
-router.register(r"reservas-pagos", ReservaPagoViewSet)
-urlpatterns = router.urls
+router.register(r"areas", AreaComunViewSet, basename="areas")
+router.register(r"reservas", ReservaViewSet, basename="reservas")
+
+urlpatterns = [
+    path("", include(router.urls)),
+]

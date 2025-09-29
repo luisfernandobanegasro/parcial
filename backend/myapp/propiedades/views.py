@@ -91,3 +91,5 @@ class UnidadViewSet(ModelViewSet):
 class UsuarioUnidadViewSet(ModelViewSet):
     queryset = UsuarioUnidad.objects.all().order_by("id")
     serializer_class = UsuarioUnidadSerializer
+
+

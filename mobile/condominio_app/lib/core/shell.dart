@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:condominio_app/features/notices/presentation/notices_list.dart';
 
 import '../features/home/home_menu.dart';
 import '../features/billing/billing_hub.dart';
 import '../features/reservations/reservations_hub.dart';
-import '../features/notices/notices_list.dart';
+
 import '../features/profile/profile_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -31,11 +32,26 @@ class _AppShellState extends State<AppShell> {
       selectedIndex: _index,
       onDestinationSelected: (i) => setState(() => _index = i),
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'Inicio'),
-        NavigationDestination(icon: Icon(Icons.payments_outlined), selectedIcon: Icon(Icons.payments), label: 'Pagos'),
-        NavigationDestination(icon: Icon(Icons.event_available_outlined), selectedIcon: Icon(Icons.event_available), label: 'Reservas'),
-        NavigationDestination(icon: Icon(Icons.campaign_outlined), selectedIcon: Icon(Icons.campaign), label: 'Avisos'),
-        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Perfil'),
+        NavigationDestination(
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps),
+            label: 'Inicio'),
+        NavigationDestination(
+            icon: Icon(Icons.payments_outlined),
+            selectedIcon: Icon(Icons.payments),
+            label: 'Pagos'),
+        NavigationDestination(
+            icon: Icon(Icons.event_available_outlined),
+            selectedIcon: Icon(Icons.event_available),
+            label: 'Reservas'),
+        NavigationDestination(
+            icon: Icon(Icons.campaign_outlined),
+            selectedIcon: Icon(Icons.campaign),
+            label: 'Avisos'),
+        NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Perfil'),
       ],
     );
 
@@ -49,11 +65,17 @@ class _AppShellState extends State<AppShell> {
               onDestinationSelected: (i) => setState(() => _index = i),
               labelType: NavigationRailLabelType.all,
               destinations: const [
-                NavigationRailDestination(icon: Icon(Icons.apps_outlined), label: Text('Inicio')),
-                NavigationRailDestination(icon: Icon(Icons.payments_outlined), label: Text('Pagos')),
-                NavigationRailDestination(icon: Icon(Icons.event_available_outlined), label: Text('Reservas')),
-                NavigationRailDestination(icon: Icon(Icons.campaign_outlined), label: Text('Avisos')),
-                NavigationRailDestination(icon: Icon(Icons.person_outline), label: Text('Perfil')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.apps_outlined), label: Text('Inicio')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.payments_outlined), label: Text('Pagos')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.event_available_outlined),
+                    label: Text('Reservas')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.campaign_outlined), label: Text('Avisos')),
+                NavigationRailDestination(
+                    icon: Icon(Icons.person_outline), label: Text('Perfil')),
               ],
             ),
             const VerticalDivider(width: 1),

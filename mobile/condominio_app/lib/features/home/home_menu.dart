@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
 import '../../shared/feature_tile.dart';
 import '../billing/billing_hub.dart';
-import '../notices/notices_list.dart';
+import '../notices/presentation/notices_list.dart';
 import '../reservations/reservations_hub.dart';
 import '../visitors/visitor_form.dart';
 import '../maintenance/maintenance_report.dart';
 import '../security/security_alerts.dart';
 import '../notifications/notifications_screen.dart';
+import 'package:condominio_app/features/notices/presentation/notices_list.dart';
 
 class HomeMenu extends StatelessWidget {
   const HomeMenu({super.key});

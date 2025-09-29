@@ -15,9 +15,11 @@ export default function RolesPage() {
     setLoading(true);
     try {
       const data = await RolesAPI.list();
-      setRows(data ?? []);
+      const arr = Array.isArray(data) ? data : (data?.results || []);
+      setRows(arr);
     } catch (e) {
       toast.error(e?.message || "Error al cargar roles");
+      setRows([]); // asegura array para evitar .map de undefined
     } finally {
       setLoading(false);
     }

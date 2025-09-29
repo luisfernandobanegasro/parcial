@@ -1,6 +1,8 @@
 // src/pages/Propiedades/PropiedadesPage.jsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PropiedadesAPI } from "../../api/propiedades.api";
+import { CondominiosAPI } from "../../api/condominios.api";
+import { ResidentesAPI } from "../../api/residentes.api";
 import { toast } from "react-toastify";
 import PropiedadForm from "./PropiedadForm";
 
@@ -27,6 +29,57 @@ export default function PropiedadesPage() {
   }, [page, q]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  // estado local para mapa de condominios
+  const [condominiosMap, setCondominiosMap] = useState({});
+  const [ownersMap, setOwnersMap] = useState({});
+
+  // cargar condominios para fallback de nombres
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const data = await CondominiosAPI.list({ page_size: 1000 });
+        const rows = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+        if (!cancel) {
+          // crear mapa id -> nombre
+          const map = Object.fromEntries(rows.map(r => [String(r.id), r.nombre || r.codigo || `Condominio ${r.id}`]));
+          setCondominiosMap(map);
+        }
+      } catch (e) {
+        // no fatal
+      }
+    })();
+    return () => { cancel = true; };
+  }, []);
+  
+  // cargar nombres de propietarios por unidad usando ResidentesAPI
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const unidadIds = Array.from(new Set(rows.map(r => r.id).filter(Boolean)));
+        if (unidadIds.length === 0) { if (!cancelled) setOwnersMap({}); return; }
+        const map = {};
+        // por simplicidad pedimos por unidad uno a uno (páginas pequeñas)
+        await Promise.all(unidadIds.map(async (unidadId) => {
+          try {
+            const res = await ResidentesAPI.list({ unidad: unidadId, page_size: 1 });
+            const item = Array.isArray(res?.results) ? res.results[0] : (Array.isArray(res) ? res[0] : null);
+            if (item) {
+              // UsuarioUnidadSerializer expone usuario_nombre
+              map[String(unidadId)] = item.usuario_nombre || item.usuario_correo || item.usuario || String(item.usuario || unidadId);
+            }
+          } catch (err) {
+            // ignore
+          }
+        }));
+        if (!cancelled) setOwnersMap(map);
+      } catch (e) {
+        if (!cancelled) setOwnersMap({});
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [rows]);
   const onSearch = () => { setPage(1); fetchData(); };
 
   const openNew = () => setModal({ open: true, record: null });
@@ -150,11 +203,11 @@ const onSave = async (payload, ownerId) => {
               rows.map((r) => (
                 <tr key={r.id}>
                   <td className="px-4 py-3">{r.id}</td>
-                  <td className="px-4 py-3">{r.condominio_nombre || "-"}</td>
+                  <td className="px-4 py-3">{r.condominio_nombre || condominiosMap[String(r.condominio) || String(r.condominio_id) ] || "-"}</td>
                   <td className="px-4 py-3">{r.codigo || "-"}</td>
                   <td className="px-4 py-3">{r.piso ?? "-"}</td>
                   <td className="px-4 py-3">{r.area_m2 ?? "-"}</td>
-                  <td className="px-4 py-3">{r.propietario_nombre || "-"}</td>
+                  <td className="px-4 py-3">{r.propietario_nombre || ownersMap[String(r.id)] || r.propietario_usuario || r.propietario_email || "-"}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded text-xs ${r.activo ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-700"}`}>
                       {r.activo ? "Sí" : "No"}

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
-import { login, getMe } from "../api/api";
+import { login, getMe, clearTokens } from "../api/api";
 import { RolesAPI } from "../api/roles.api";
 import { useStatsBusOptional } from "../context/StatsContext";
 import { clearCachedSession, setCachedSession } from "../auth/session";
@@ -38,8 +38,10 @@ export default function Login() {
     try {
       setSubmitting(true);
 
-      // Limpiar cualquier rastro de una sesión anterior
-      clearCachedSession();
+  // Limpiar cualquier rastro de una sesión anterior
+  clearCachedSession();
+  // y también tokens guardados
+  clearTokens();
 
       // 1) Login → guarda tokens en localStorage (api.js ya lo hace)
       await login({ username: form.username, password: form.password });
