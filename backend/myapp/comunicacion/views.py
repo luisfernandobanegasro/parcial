@@ -9,6 +9,8 @@ from django.shortcuts import get_object_or_404
 from .models import Aviso, ArchivoAviso, LecturaAviso
 from .serializers import AvisoSerializer, ArchivoAvisoSerializer, LecturaSerializer
 
+from firebase_admin import messaging
+from myapp.push.models import DeviceToken
 
 class IsStaffOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -80,6 +82,10 @@ class AvisoViewSet(ModelViewSet):
         arc = get_object_or_404(ArchivoAviso, id=archivo_id, aviso=aviso)
         arc.delete()
         return Response(status=204)
+    
+    def perform_create(self, serializer):
+        aviso = serializer.save()
+        _send_notice_push(aviso)
 
 
 class LecturaViewSet(ModelViewSet):
@@ -90,3 +96,32 @@ class LecturaViewSet(ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.filter(usuario=self.request.user)
+
+def _send_notice_push(aviso):
+    # Construimos título/cuerpo
+    title = aviso.titulo
+    body  = (aviso.cuerpo or "")[:120]
+
+    # Data para navegación en la app
+    data_payload = {
+        "screen": "notice_detail",        # para Flutter
+        "notice_id": str(aviso.id),
+    }
+
+    # Selección de tokens (demo: todos). Si necesitas segmentar por alcance,
+    # aquí filtras según condominio/unidad del usuario.
+    tokens = list(DeviceToken.objects.values_list("token", flat=True))
+    if not tokens:
+        return
+
+    # Usamos mensajes por 'multicast'
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(title=title, body=body),
+        data=data_payload,
+        tokens=tokens
+    )
+    try:
+        messaging.send_multicast(message)
+    except Exception:
+        # no derribar la request por problemas de FCM
+        pass

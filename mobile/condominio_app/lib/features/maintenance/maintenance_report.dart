@@ -11,9 +11,12 @@ class MaintenanceReport extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: const [
-          TextField(decoration: InputDecoration(labelText: 'Título del problema')),
+          TextField(
+              decoration: InputDecoration(labelText: 'Título del problema')),
           Gap(12),
-          TextField(maxLines: 4, decoration: InputDecoration(labelText: 'Descripción')),
+          TextField(
+              maxLines: 4,
+              decoration: InputDecoration(labelText: 'Descripción')),
           Gap(12),
           _PhotoPicker(),
           Gap(20),
@@ -25,7 +28,7 @@ class MaintenanceReport extends StatelessWidget {
 }
 
 class _PhotoPicker extends StatelessWidget {
-  const _PhotoPicker({super.key});
+  const _PhotoPicker();
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
@@ -37,9 +40,10 @@ class _PhotoPicker extends StatelessWidget {
 }
 
 class _SubmitBtn extends StatelessWidget {
-  const _SubmitBtn({super.key});
+  const _SubmitBtn();
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(onPressed: () {}, child: const Text('Enviar reporte'));
+    return ElevatedButton(
+        onPressed: () {}, child: const Text('Enviar reporte'));
   }
 }

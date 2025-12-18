@@ -7,6 +7,8 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv  # pip install python-dotenv
+import firebase_admin
+from firebase_admin import credentials
 
 # ======================================
 # BASE
@@ -78,6 +80,7 @@ INSTALLED_APPS = [
     "myapp.reservas",
     "myapp.seguridad",
     "myapp.mantenimiento",
+    "myapp.push",
 ]
 
 # ======================================
@@ -185,6 +188,7 @@ else:
         "http://127.0.0.1:3000",
         "http://localhost:8080",
         "http://127.0.0.1:8080",
+        "http://192.168.0.200:8000",
         "https://d29i2t14lmkp5i.cloudfront.net",
     ]
 
@@ -253,3 +257,20 @@ PAYMENT_MERCHANT = {
     "categoria": os.getenv("PAY_MERCHANT_CAT", "Servicios"),
     "merchant_id": os.getenv("PAY_MERCHANT_ID", ""),  # si luego te lo asigna el banco
 }
+
+# ======================================
+BNB_CFG = {
+    "ACCOUNT_ID": os.getenv("BNB_ACCOUNT_ID"),
+    "AUTHORIZATION_ID": os.getenv("BNB_AUTHORIZATION_ID"),
+    "AUTH_BASE": os.getenv("BNB_AUTH_BASE"),
+    "QR_BASE": os.getenv("BNB_QR_BASE"),
+    "ACCOUNT_BASE": os.getenv("BNB_ACCOUNT_BASE"),
+    "ENTERPRISE_BASE": os.getenv("BNB_ENTERPRISE_BASE"),
+    "TIMEOUT": int(os.getenv("BNB_TIMEOUT", "15")),
+}
+# ======================================
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")  # ruta a tu service-account.json
+
+if FIREBASE_CREDENTIALS_PATH and not firebase_admin._apps:
+    cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
+    firebase_admin.initialize_app(cred)

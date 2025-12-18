@@ -47,7 +47,6 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
             },
           ),
           const Divider(),
-
           const _SectionTitle('Autenticación en dos pasos (2FA)'),
           SwitchListTile(
             title: const Text('Activar 2FA (TOTP)'),
@@ -72,12 +71,12 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
             },
           ),
           const Divider(),
-
           const _SectionTitle('Sesiones y actividad'),
           ListTile(
             leading: const Icon(Icons.devices_other),
             title: const Text('Sesiones activas'),
-            subtitle: const Text('Revisa y cierra sesiones abiertas en otros dispositivos'),
+            subtitle: const Text(
+                'Revisa y cierra sesiones abiertas en otros dispositivos'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               _toast(context, 'Sesiones activas (próximamente)');
@@ -95,7 +94,6 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
             },
           ),
           const Divider(),
-
           const _SectionTitle('Accesos y permisos'),
           ListTile(
             leading: const Icon(Icons.app_shortcut_outlined),
@@ -116,7 +114,7 @@ class _SecuritySettingsScreenState extends State<SecuritySettingsScreen> {
 
 class _SectionTitle extends StatelessWidget {
   final String text;
-  const _SectionTitle(this.text, {super.key});
+  const _SectionTitle(this.text);
   @override
   Widget build(BuildContext context) {
     return Padding(

@@ -29,4 +29,7 @@ urlpatterns = [
     path("reservas/",     include("myapp.reservas.urls")),
     path("seguridad/",    include("myapp.seguridad.urls")),
     path("mantenimiento/",include("myapp.mantenimiento.urls")),
+
+    path("push/", include("myapp.push.urls")),
+
 ]

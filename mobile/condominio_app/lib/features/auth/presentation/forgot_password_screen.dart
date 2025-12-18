@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:provider/provider.dart';
+
 import '../../../core/api_client.dart';
+import '../../../core/app_state.dart';
 import '../../../env.dart';
-import 'package:dio/dio.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -28,7 +31,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     setState(() => _loading = true);
     try {
-      final api = ApiClient();
+      final appState = context.read<AppState>();
+      final api = ApiClient(tokenProvider: appState);
       await api.dio.post(
         Env.forgotPath,
         data: {"email": _emailCtrl.text.trim()},
@@ -37,7 +41,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
       setState(() => _sentTo = _emailCtrl.text.trim());
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Si el correo existe, se envió un enlace de restablecimiento.")),
+        const SnackBar(
+            content: Text(
+                "Si el correo existe, se envió un enlace de restablecimiento.")),
       );
     } catch (e) {
       if (!mounted) return;
@@ -83,7 +89,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       validator: (v) {
                         final t = (v ?? "").trim();
                         if (t.isEmpty) return "Ingresa tu correo";
-                        if (!t.contains("@") || !t.contains(".")) return "Correo inválido";
+                        if (!t.contains("@") || !t.contains("."))
+                          return "Correo inválido";
                         return null;
                       },
                     ),
@@ -92,7 +99,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   ElevatedButton(
                     onPressed: _loading ? null : _submit,
                     child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2))
                         : const Text("Enviar enlace"),
                   ),
                   if (_sentTo != null) ...[

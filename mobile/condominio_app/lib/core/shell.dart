@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:condominio_app/features/notices/presentation/notices_list.dart';
+// import 'package:provider/provider.dart';
 
 import '../features/home/home_menu.dart';
-import '../features/billing/billing_hub.dart';
+import '../features/billing/presentation/billing_hub.dart';
 import '../features/reservations/reservations_hub.dart';
-
+import '../features/notices/presentation/notices_list.dart';
 import '../features/profile/profile_screen.dart';
+// import '../core/app_state.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -21,7 +22,7 @@ class _AppShellState extends State<AppShell> {
     BillingHub(),
     ReservationsHub(),
     NoticesList(),
-    ProfileScreen(),
+    ProfileScreen(), // en ProfileScreen agregamos botón de logout
   ];
 
   @override
@@ -56,7 +57,6 @@ class _AppShellState extends State<AppShell> {
     );
 
     if (wide) {
-      // Layout de escritorio: Rail a la izquierda + contenido
       return Scaffold(
         body: Row(
           children: [
@@ -85,7 +85,6 @@ class _AppShellState extends State<AppShell> {
       );
     }
 
-    // Layout móvil: solo bottom nav; cada página trae su propio Scaffold
     return Scaffold(
       body: _pages[_index],
       bottomNavigationBar: nav,

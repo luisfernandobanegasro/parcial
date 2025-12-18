@@ -1,6 +1,5 @@
 # myapp/reservas/views.py
 from django.utils.dateparse import parse_datetime
-from django.db.models import Q
 from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,6 +8,7 @@ from rest_framework.viewsets import ModelViewSet
 from .models import AreaComun, Reserva
 from .serializers import AreaComunSerializer, ReservaSerializer
 
+from django.utils import timezone   
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
@@ -23,7 +23,8 @@ class IsOwnerOrStaff(permissions.BasePermission):
         if request.method in ("GET", "HEAD", "OPTIONS"):
             return True
         if request.user and request.user.is_authenticated:
-            return request.user.is_staff or obj.solicitante_id == request.user.id
+            # comparar contra el auth_user ligado al perfil
+            return request.user.is_staff or obj.solicitante.auth_user_id == request.user.id
         return False
 
 
@@ -35,37 +36,38 @@ class AreaComunViewSet(ModelViewSet):
     @action(detail=True, methods=["get"], url_path="disponibilidad")
     def disponibilidad(self, request, pk=None):
         """
-        Devuelve reservas solapadas con [start, end)
-        ?start=ISO&end=ISO
+        Devuelve SOLO las reservas que se SOLAPAN con [start, end)
+        Parámetros: ?start=ISO&end=ISO (ej: 2025-10-09T11:00:00Z)
         """
         area = self.get_object()
         start = request.query_params.get("start")
         end = request.query_params.get("end")
-        try:
-            start_dt = parse_datetime(start) if start else None
-            end_dt = parse_datetime(end) if end else None
-        except Exception:
-            start_dt = end_dt = None
 
+        start_dt = parse_datetime(start) if start else None
+        end_dt = parse_datetime(end) if end else None
         if not start_dt or not end_dt or end_dt <= start_dt:
             return Response({"detail": "Parámetros start/end inválidos (ISO)."}, status=400)
 
+        # Asegurar zona/aware
+        if timezone.is_naive(start_dt):
+            start_dt = timezone.make_aware(start_dt)
+        if timezone.is_naive(end_dt):
+            end_dt = timezone.make_aware(end_dt)
+
+        # Solapamiento: inicio < end  y  fin > start
         ocupadas = (
             Reserva.objects
             .filter(area=area)
             .exclude(estado__in=["CANCELADA", "RECHAZADA"])
+            .filter(inicio__lt=end_dt, fin__gt=start_dt)
+            .select_related("area", "solicitante")
             .order_by("inicio")
         )
         data = ReservaSerializer(ocupadas, many=True, context={"request": request}).data
-        return Response({"ocupadas": data})
-
+        return Response({"ocupadas": data, "count": len(data)})
 
 class ReservaViewSet(ModelViewSet):
-    queryset = (
-        Reserva.objects
-        .select_related("area", "solicitante")
-        .order_by("-inicio", "-id")
-    )
+    queryset = Reserva.objects.select_related("area", "solicitante", "solicitante__auth_user").order_by("-inicio", "-id")
     serializer_class = ReservaSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrStaff]
 
@@ -73,8 +75,8 @@ class ReservaViewSet(ModelViewSet):
         qs = super().get_queryset()
 
         area = self.request.query_params.get("area")
-        estado = self.request.query_params.get("estado")      # PENDIENTE|CONFIRMADA|CANCELADA|RECHAZADA
-        vigente = self.request.query_params.get("vigente")    # yes|no
+        estado = self.request.query_params.get("estado")
+        vigente = self.request.query_params.get("vigente")   # yes|no
         solo_mias = self.request.query_params.get("mias")     # yes
 
         if area:
@@ -85,12 +87,11 @@ class ReservaViewSet(ModelViewSet):
         if vigente in ("yes", "true", "1"):
             from django.utils import timezone
             now = timezone.now()
-            qs = qs.filter(
-                estado__in=["PENDIENTE", "CONFIRMADA"],
-                fin__gt=now
-            )
+            qs = qs.filter(estado__in=["PENDIENTE", "CONFIRMADA"], fin__gt=now)
+
         if solo_mias in ("yes", "true", "1"):
-            qs = qs.filter(solicitante=self.request.user)
+            # filtra por el auth_user actual
+            qs = qs.filter(solicitante__auth_user=self.request.user)
 
         return qs
 
@@ -101,7 +102,7 @@ class ReservaViewSet(ModelViewSet):
         if not request.user.is_staff:
             return Response({"detail": "Solo administradores pueden confirmar."}, status=403)
         res = self.get_object()
-        if res.estado in (Reserva.Estado.CANCELADA, Reserva.Estado.RECHAZADA):
+        if res.estado in ("CANCELADA", "RECHAZADA"):
             return Response({"detail": "No se puede confirmar una reserva cancelada/rechazada."}, status=400)
         res.estado = "CONFIRMADA"
         res.save(update_fields=["estado"])
@@ -112,7 +113,7 @@ class ReservaViewSet(ModelViewSet):
         if not request.user.is_staff:
             return Response({"detail": "Solo administradores pueden rechazar."}, status=403)
         res = self.get_object()
-        if res.estado == Reserva.Estado.CANCELADA:
+        if res.estado == "CANCELADA":
             return Response({"detail": "Ya está cancelada."}, status=400)
         res.estado = "RECHAZADA"
         res.save(update_fields=["estado"])
@@ -121,7 +122,7 @@ class ReservaViewSet(ModelViewSet):
     @action(detail=True, methods=["patch"], url_path="cancelar")
     def cancelar(self, request, pk=None):
         res = self.get_object()
-        if res.estado in (Reserva.Estado.CANCELADA, Reserva.Estado.RECHAZADA):
+        if res.estado in ("CANCELADA", "RECHAZADA"):
             return Response({"detail": "Ya se encuentra cancelada/rechazada."}, status=400)
         res.estado = "CANCELADA"
         res.save(update_fields=["estado"])

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import '../../../core/api_client.dart';
-import '../../../core/storage/secure_storage.dart';
-// import '../../home/home_menu.dart'; // opcional: remover si no se usa
-import '../../../core/shell.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+// import '../../../core/api_client.dart';
+import '../../../core/app_state.dart';
+// import '../../../core/storage/secure_storage.dart';
+import '../../../core/app_router.dart';
 import '../data/auth_repository.dart';
 import 'forgot_password_screen.dart';
-
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,10 +24,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _doLogin() async {
     FocusScope.of(context).unfocus();
-    final u = _userCtrl.text.trim();
-    final p = _passCtrl.text;
+    final username = _userCtrl.text.trim();
+    final password = _passCtrl.text;
 
-    if (u.isEmpty || p.isEmpty) {
+    if (username.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingresa usuario y contraseña')),
       );
@@ -34,17 +36,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _loading = true);
     try {
-      final repo = AuthRepository(api: ApiClient(), storage: AppSecureStorage());
-      await repo.login(username: u, password: p);
+      // Usamos el repos ya inyectado por Provider
+      final authRepo = context.read<AuthRepository>();
+      await authRepo.login(username: username, password: password);
+
+      // Marca sesión OK y navega con GoRouter
+      await context.read<AppState>().setLoggedIn();
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AppShell()),
-        (route) => false,
-      );
+
+      // Navegación declarativa (evita el _debugLocked)
+      context.goNamed(AppRoutes.shell.name);
     } catch (e) {
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(msg.isEmpty ? 'Error de autenticación' : msg)),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -77,7 +84,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'SmartCondominium',
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w800),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .copyWith(fontWeight: FontWeight.w800),
                   ),
                   const Gap(18),
                   TextField(
@@ -102,14 +112,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   ElevatedButton(
                     onPressed: _loading ? null : _doLogin,
                     child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text('Iniciar sesión'),
                   ),
                   TextButton(
                     onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                      );
+                      context.push(MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ).settings.name ??
+                          '/forgot');
                     },
                     child: const Text('¿Olvidaste tu contraseña?'),
                   ),

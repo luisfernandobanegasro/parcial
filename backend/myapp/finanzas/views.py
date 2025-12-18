@@ -1,4 +1,5 @@
 # myapp/finanzas/views.py
+import base64
 from decimal import Decimal
 from io import BytesIO
 import os
@@ -556,6 +557,138 @@ class PagoViewSet(ModelViewSet):
             intento.save(update_fields=["payload"])
         return Response({"url": fake_url, "intento_id": intento.id})
     # --------------------------------
+    @action(detail=True, methods=["post"], url_path="iniciar_qr_bnb")
+    def iniciar_qr_bnb(self, request, pk=None):
+        """
+        Genera QR Simple en BNB para este Pago (medio 'QR').
+        Crea/actualiza un PagoIntento (pasarela BNB) y almacena imagen base64 si viene.
+        Respuesta: { ok, intento_id, qr_png_url?, bnb_qr_id }
+        """
+        pago = self.get_object()
+        if pago.medio != "QR":
+            return Response({"detail": "El pago no es de tipo QR."}, status=400)
+        if pago.estado == "APROBADO":
+            return Response({"detail": "El pago ya está aprobado."}, status=400)
+
+        # Inferir unidad desde primer detalle (igual que en iniciar_qr)
+        det = (
+            pago.pagodetalle_set
+            .select_related("cargo__unidad")
+            .order_by("id")
+            .first()
+        )
+        unidad = det.cargo.unidad if det and det.cargo and det.cargo.unidad_id else None
+
+        # Crear intento para BNB
+        intento = PagoIntento.objects.create(
+            pago=pago,
+            medio="QR",
+            pasarela="BNB",
+            estado="CREADO",
+            total=pago.monto,
+            unidad=unidad if hasattr(PagoIntento, "unidad") else None,
+        )
+
+        # Llamar a BNB – QR Simple
+        moneda = getattr(pago.documento, "moneda", "BOB") or "BOB"
+        gloss = f"Pago expensas #{pago.id}"
+        amount = f"{Decimal(pago.monto):.2f}"
+        client = BNBClient()
+        try:
+            data = client.qr_simple_create(
+                currency=moneda,
+                gloss=gloss,
+                amount=amount,
+                single_use=True,
+                expiration_date=None,  # setea YYYY-MM-DD si quieres caducar
+            )
+        except BNBClientError as e:
+            intento.raw_response = {"error": str(e)}
+            intento.estado = "RECHAZADO"
+            intento.save(update_fields=["raw_response", "estado"])
+            return Response({"detail": str(e)}, status=502)
+
+        qr_id = str(data.get("id") or data.get("qrId") or data.get("qr_id") or "")
+        img_b64 = ""
+        qr_bytes = data.get("qr")
+        if isinstance(qr_bytes, list):
+            try:
+                img_b64 = base64.b64encode(bytes(qr_bytes)).decode("utf-8")
+            except Exception:
+                img_b64 = ""
+
+        intento.bnb_qr_id = qr_id or intento.bnb_qr_id
+        intento.bnb_qr_image_b64 = img_b64 or intento.bnb_qr_image_b64
+        intento.bnb_payload = data
+        intento.estado = "EN_PROCESO"
+        intento.save(update_fields=["bnb_qr_id","bnb_qr_image_b64","bnb_payload","estado"])
+
+        qr_png_url = request.build_absolute_uri(f"/api/pagointentos/{intento.id}/qr.png")
+
+        return Response({
+            "ok": True,
+            "intento_id": intento.id,
+            "bnb_qr_id": intento.bnb_qr_id,
+            "qr_png_url": qr_png_url if intento.bnb_qr_image_b64 else None,
+        }, status=200)
+
+
+    @action(detail=True, methods=["get"], url_path="estado_qr_bnb")
+    def estado_qr_bnb(self, request, pk=None):
+        """
+        Consulta estado del QR en BNB y, si está usado (=2), marca el Pago como APROBADO
+        y recalcula cargos. Devuelve estados para polling del front.
+        """
+        pago = self.get_object()
+        intento = (
+            PagoIntento.objects.filter(pago=pago, medio="QR", pasarela="BNB")
+            .order_by("-id").first()
+        )
+        if not intento or not intento.bnb_qr_id:
+            return Response({"detail": "No existe intento BNB con QR para este pago."}, status=404)
+
+        client = BNBClient()
+        try:
+            status_data = client.qr_simple_status(intento.bnb_qr_id)
+        except BNBClientError as e:
+            return Response({"detail": str(e)}, status=502)
+
+        code = status_data.get("qrId") or status_data.get("status") or status_data.get("qrIdStatus")
+        code_int = int(code) if str(code).isdigit() else None
+
+        intento.bnb_status_code = code_int
+        intento.bnb_payload = status_data
+        intento.save(update_fields=["bnb_status_code", "bnb_payload"])
+
+        # 1=No usado, 2=Usado, 3=Expirado, 4=Con error
+        if code_int == 2 and pago.estado != "APROBADO":
+            with transaction.atomic():
+                pago.estado = "APROBADO"
+                pago.save(update_fields=["estado"])
+                cargo_ids = list(pago.pagodetalle_set.values_list("cargo_id", flat=True))
+                try:
+                    self._recalc_cargos(cargo_ids)
+                except Exception:
+                    pass
+            intento.estado = "APROBADO"
+            intento.save(update_fields=["estado"])
+        elif code_int == 3:
+            intento.estado = "EXPIRO"
+            intento.save(update_fields=["estado"])
+        elif code_int == 4:
+            intento.estado = "RECHAZADO"
+            intento.save(update_fields=["estado"])
+
+        doc_id = pago.documento_id if getattr(pago, "documento_id", None) else None
+        return Response({
+            "intento_id": intento.id,
+            "estado_intento": intento.estado,
+            "bnb_status_code": code_int,
+            "pago_id": pago.id,
+            "estado_pago": pago.estado,
+            "documento_id": doc_id,
+        }, status=200)
+
 
 
 class PagoDetalleViewSet(ModelViewSet):
@@ -575,6 +708,14 @@ class PagoIntentoViewSet(ModelViewSet):
     @action(detail=True, methods=["get"], url_path="qr.png")
     def qr_png(self, request, pk=None):
         """Devuelve el PNG del QR para el intento."""
+        b64img = getattr(intento, "bnb_qr_image_b64", None)
+        if b64img:
+            try:
+                data = base64.b64decode(b64img)
+                return HttpResponse(data, content_type="image/png")
+            except Exception:
+                pass  # sigue al fallback local
+
         if qrcode is None:
             return Response({"detail": "Servidor sin 'qrcode'."}, status=500)
         intento = self.get_object()

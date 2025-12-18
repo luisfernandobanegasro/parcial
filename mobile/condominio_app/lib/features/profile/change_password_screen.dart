@@ -1,8 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:provider/provider.dart';
+
 import '../../core/api_client.dart';
+import '../../core/app_state.dart';
 import '../../env.dart';
-import 'package:dio/dio.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -31,7 +34,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     setState(() => _loading = true);
     try {
-      final api = ApiClient();
+      final appState = context.read<AppState>();
+      final api = ApiClient(tokenProvider: appState);
       await api.dio.post(
         Env.changePath,
         data: {
@@ -44,7 +48,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Contraseña actualizada correctamente.")),
       );
-      Navigator.of(context).pop(); // vuelve a la pantalla anterior
+      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -81,7 +85,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         labelText: "Contraseña actual",
                         prefixIcon: Icon(Icons.lock_clock_outlined),
                       ),
-                      validator: (v) => (v == null || v.isEmpty) ? "Ingresa tu contraseña actual" : null,
+                      validator: (v) => (v == null || v.isEmpty)
+                          ? "Ingresa tu contraseña actual"
+                          : null,
                     ),
                     const Gap(12),
                     TextFormField(
@@ -106,7 +112,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         prefixIcon: Icon(Icons.lock_outline),
                       ),
                       validator: (v) {
-                        if (v != _new1Ctrl.text) return "Las contraseñas no coinciden";
+                        if (v != _new1Ctrl.text)
+                          return "Las contraseñas no coinciden";
                         return null;
                       },
                     ),
@@ -114,7 +121,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     ElevatedButton(
                       onPressed: _loading ? null : _submit,
                       child: _loading
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : const Text("Guardar"),
                     ),
                   ],

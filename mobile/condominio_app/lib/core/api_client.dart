@@ -1,82 +1,52 @@
-import 'package:dio/dio.dart'; // Cliente HTTP
-import 'package:flutter/foundation.dart'; // Para debugPrint
-import '../env.dart'; // Configuración de URLs
-import 'storage/secure_storage.dart'; // Almacenamiento seguro de tokens
+import 'dart:async';
+import 'package:dio/dio.dart';
+import '../env.dart';
+
+/// Contrato para pedir/renovar token desde el interceptor.
+abstract class TokenProvider {
+  Future<String?> getAccessToken();
+  Future<bool> refreshToken(); // true si se renovó
+  void forceLogout(); // por ejemplo, limpiar estado y navegar a login
+}
 
 class ApiClient {
-  // Cliente HTTP configurado con baseUrl y timeouts
-  final Dio dio = Dio(BaseOptions(
-    baseUrl: Env.baseUrl,
-    connectTimeout: const Duration(seconds: 8),
-    receiveTimeout: const Duration(seconds: 8),
-  ));
+  final Dio dio;
 
-  // Manejo de tokens en almacenamiento seguro
-  final AppSecureStorage storage = AppSecureStorage();
-
-  ApiClient() {
-    // Interceptor de logs para depuración
-    dio.interceptors.add(LogInterceptor(
-      request: true,
-      requestHeader: true,
-      requestBody: true,
-      responseBody: true,
-      error: true,
-      logPrint: (obj) => debugPrint(obj.toString()),
-    ));
-
-    // Interceptor para autenticación automática
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        // Adjunta token en cada request
-        onRequest: (options, handler) async {
-          final token = await storage.readAccess();
-          if (token != null && token.isNotEmpty) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
-          handler.next(options);
-        },
-
-        // Maneja errores 401 → intenta refresh y reintenta
-        onError: (e, handler) async {
-          final is401 = e.response?.statusCode == 401;
-          final req = e.requestOptions;
-          final isRefreshCall = req.path.endsWith(Env.refreshPath);
-
-          if (is401 && !isRefreshCall && await _refresh()) {
-            final token = await storage.readAccess();
-            if (token != null && token.isNotEmpty) {
-              req.headers['Authorization'] = 'Bearer $token';
+  ApiClient({required TokenProvider tokenProvider})
+      : dio = Dio(BaseOptions(
+          baseUrl: Env.baseUrl,
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {'Content-Type': 'application/json'},
+        )) {
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        final token = await tokenProvider.getAccessToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+      onError: (e, handler) async {
+        // Si es 401 intentamos refrescar UNA vez.
+        if (e.response?.statusCode == 401) {
+          final ok = await tokenProvider.refreshToken();
+          if (ok) {
+            try {
+              final req = e.requestOptions;
+              final token = await tokenProvider.getAccessToken();
+              if (token != null) req.headers['Authorization'] = 'Bearer $token';
+              final clone = await dio.fetch(req);
+              return handler.resolve(clone);
+            } catch (_) {
+              // si falla el reintento, continúa con error
             }
-            final retry = await dio.fetch(req);
-            return handler.resolve(retry);
+          } else {
+            tokenProvider.forceLogout();
           }
-          handler.next(e);
-        },
-      ),
-    );
-  }
-
-  // Renueva el access token usando el refresh
-  Future<bool> _refresh() async {
-    try {
-      final refresh = await storage.readRefresh();
-      if (refresh == null || refresh.isEmpty) return false;
-
-      final res = await dio.post(
-        Env.refreshPath,
-        data: {'refresh': refresh},
-        options: Options(headers: {'Content-Type': 'application/json'}),
-      );
-
-      final newAccess = res.data['access'] as String?;
-      if (newAccess == null || newAccess.isEmpty) return false;
-
-      await storage.saveTokens(access: newAccess, refresh: refresh);
-      return true;
-    } catch (e) {
-      await storage.clear();
-      return false;
-    }
+        }
+        handler.next(e);
+      },
+    ));
   }
 }

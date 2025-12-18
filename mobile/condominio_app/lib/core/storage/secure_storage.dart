@@ -1,15 +1,25 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class AppSecureStorage {
-  final _s = const FlutterSecureStorage();
+abstract class IStorage {
+  Future<void> write({required String key, required String value});
+  Future<String?> read({required String key});
+  Future<void> delete({required String key});
+  Future<void> deleteAll();
+}
 
-  Future<void> saveTokens({required String access, required String refresh}) async {
-    await _s.write(key: 'access', value: access);
-    await _s.write(key: 'refresh', value: refresh);
-  }
+class AppSecureStorage implements IStorage {
+  final FlutterSecureStorage _ss = const FlutterSecureStorage();
 
-  Future<String?> readAccess()  => _s.read(key: 'access');
-  Future<String?> readRefresh() => _s.read(key: 'refresh');
+  @override
+  Future<void> write({required String key, required String value}) =>
+      _ss.write(key: key, value: value);
 
-  Future<void> clear() async => _s.deleteAll();
+  @override
+  Future<String?> read({required String key}) => _ss.read(key: key);
+
+  @override
+  Future<void> delete({required String key}) => _ss.delete(key: key);
+
+  @override
+  Future<void> deleteAll() => _ss.deleteAll();
 }

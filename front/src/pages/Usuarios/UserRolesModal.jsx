@@ -9,45 +9,40 @@ export default function UserRolesModal({ usuario, open, onClose }) {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
 
-  // Memoriza la función de carga para que useEffect pueda depender de ella sin warning.
   const load = useCallback(async () => {
-    if (!usuario?.id) return;
+    if (!open || !usuario?.id) return;
     setLoading(true);
     try {
       const [roles, my] = await Promise.all([
         RolesAPI.list(),
         RolesAPI.listByUsuario(usuario.id),
       ]);
-      setAllRoles(roles ?? []);
-      setUserRoles(my ?? []);
+      setAllRoles(roles?.results || roles || []);
+      setUserRoles(my?.results || my || []);
     } catch (e) {
+      console.error(e);
       toast.error(e?.message || "No se pudieron cargar roles");
     } finally {
       setLoading(false);
     }
-  }, [usuario?.id]);
+  }, [open, usuario?.id]);
 
-  // Carga cuando se abre el modal o cuando cambia el usuario seleccionado.
+  // Cargar cuando se abre o cambia el usuario
   useEffect(() => {
-    if (open) load();
-  }, [open, load]);
+    load();
+  }, [load]);
 
-  // (Opcional) Si cambia el usuario, limpia estados para no ver “parpadeos” de datos anteriores.
-  useEffect(() => {
-    if (!open) return;
-    setAllRoles([]);
-    setUserRoles([]);
-  }, [usuario?.id, open]);
-
-  const isAssigned = (roleId) => userRoles.some((r) => r.id === roleId);
+  const isAssigned = (roleId) =>
+    userRoles?.some((r) => String(r.id) === String(roleId));
 
   const assign = async (role) => {
     setAssigning(true);
     try {
       await RolesAPI.addToUsuario(usuario.id, role.id);
       toast.success(`Asignado: ${role.name}`);
-      setUserRoles((prev) => [...prev, role]);
+      await load(); // refresca contra backend
     } catch (e) {
+      console.error(e);
       toast.error(e?.message || "No se pudo asignar");
     } finally {
       setAssigning(false);
@@ -59,8 +54,9 @@ export default function UserRolesModal({ usuario, open, onClose }) {
     try {
       await RolesAPI.removeFromUsuario(usuario.id, role.id);
       toast.success(`Quitado: ${role.name}`);
-      setUserRoles((prev) => prev.filter((r) => r.id !== role.id));
+      await load(); // refresca contra backend
     } catch (e) {
+      console.error(e);
       toast.error(e?.message || "No se pudo quitar");
     } finally {
       setAssigning(false);
@@ -72,7 +68,7 @@ export default function UserRolesModal({ usuario, open, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-2xl rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
+      <div className="relative z-10 w-full max-w-3xl rounded-xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold">Roles de {usuario?.usuario}</h3>
           <button
@@ -94,7 +90,10 @@ export default function UserRolesModal({ usuario, open, onClose }) {
                 <div className="text-gray-500">Sin roles.</div>
               ) : (
                 userRoles.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between rounded border px-3 py-2">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between rounded border px-3 py-2"
+                  >
                     <span>{r.name}</span>
                     <button
                       disabled={assigning}
@@ -119,10 +118,15 @@ export default function UserRolesModal({ usuario, open, onClose }) {
                 <div className="text-gray-500">No hay roles creados.</div>
               ) : (
                 allRoles.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between rounded border px-3 py-2">
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between rounded border px-3 py-2"
+                  >
                     <span>{r.name}</span>
                     {isAssigned(r.id) ? (
-                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">Asignado</span>
+                      <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-700">
+                        Asignado
+                      </span>
                     ) : (
                       <button
                         disabled={assigning}
@@ -138,10 +142,12 @@ export default function UserRolesModal({ usuario, open, onClose }) {
             </div>
           </div>
         </div>
-  
-  
+
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end">
-          <button onClick={onClose} className="rounded-lg px-4 py-2 border hover:bg-gray-50 dark:hover:bg-gray-800">
+          <button
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 border hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
             Cerrar
           </button>
         </div>

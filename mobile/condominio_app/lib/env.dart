@@ -1,23 +1,47 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 class Env {
-  // Si estás en emulador
-  //static const String baseUrl = "http://10.0.2.2:8000/api";
+  /// Usa --dart-define=API_BASE_URL=... al compilar
+  static const String _baseUrlFromEnv = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
 
-  // Si usas teléfono real con adb reverse:
-  static const String baseUrl = "http://127.0.0.1:8000/api/";
+  /// Base URL detectada
+  static String get baseUrl {
+    // Si pasamos la variable en build/run, la usamos
+    if (_baseUrlFromEnv.isNotEmpty) {
+      return _baseUrlFromEnv;
+    }
 
-  // Si usas IP LAN:
-  // static const String baseUrl = "http://192.168.1.50:8000/api";
+    // Fallbacks locales (desarrollo)
+    if (kIsWeb) {
+      return "http://127.0.0.1:8000/api";
+    } else if (Platform.isAndroid) {
+      return "http://127.0.0.1:8000/api";
+    } else if (Platform.isIOS) {
+      return "http://127.0.0.1:8000/api";
+    } else {
+      return "http://127.0.0.1:8000/api";
+    }
+  }
 
-  // Endpoints relativos
-  static const String loginPath = "auth/login/";
-  static const String refreshPath = "auth/refresh/";
-  static const String forgotPath = "auth/password/forgot/";
-  static const String resetPath = "auth/password/reset/";
-  static const String changePath = "auth/password/change/";
-  static const String mePath = "me/";
+  // ========== AUTH ==========
+  static const tokenPath = '/auth/login/';
+  static const refreshPath = '/auth/refresh/';
+  static const forgotPath = '/auth/password/forgot/';
+  static const resetPath = '/auth/password/reset/';
+  static const changePath = '/auth/password/change/';
+  static const mePath = '/me/';
+
+  // ========== COMUNICACIÓN ==========
+  static String get comunicacionBase => '$baseUrl/comunicacion';
+  static const avisosPath = '/avisos/';
+  static const lecturasPath = '/lecturas/';
+
+  // ========== RESERVAS ==========
+  static String get reservasBase => '$baseUrl/reservas';
+  static const reservasPath = '/reservas/';
+  static const areasPath = '/areas/';
 }
-/*
-Si cambias a emulador, solo cambia baseUrl a http://10.0.2.2:8000/api/.
-Sin adb reverse, usa la IP LAN: http://192.168.x.y:8000/api/.
-adb reverse tcp:8000 tcp:8000
-*/

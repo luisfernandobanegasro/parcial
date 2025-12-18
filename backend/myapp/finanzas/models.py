@@ -76,6 +76,13 @@ class PagoIntento(models.Model):
     pago = models.ForeignKey("finanzas.Pago", models.SET_NULL, blank=True, null=True, db_column="pago_id")
     creado_en = models.DateTimeField(auto_now_add=True)
     actualizado_en = models.DateTimeField(auto_now=True)
+    # --- en PagoIntento ---
+    bnb_qr_id = models.CharField(max_length=128, blank=True, null=True)
+    bnb_qr_image_b64 = models.TextField(blank=True, null=True)
+    bnb_status_code = models.IntegerField(blank=True, null=True)  # 1=No usado, 2=Usado, 3=Expirado, 4=Error
+    bnb_payload = models.JSONField(blank=True, null=True)
+
+
 
     class Meta:
         db_table = "pagos_intentos"

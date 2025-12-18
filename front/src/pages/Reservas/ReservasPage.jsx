@@ -88,29 +88,38 @@ function ReservasTab() {
   useEffect(() => { fetchAreas(); }, []);
   useEffect(() => { fetchReservas(); }, [params]);
 
-  async function crearReserva(e) {
-    e.preventDefault();
-    if (!form.area) return toast.error("Selecciona un área.");
-    const inicio = dayjs(`${form.fecha}T${form.inicio}`).toISOString();
-    const fin    = dayjs(`${form.fecha}T${form.fin}`).toISOString();
-    if (dayjs(fin).isSameOrBefore(dayjs(inicio))) return toast.error("Fin debe ser mayor al inicio.");
+async function crearReserva(e) {
+  e.preventDefault();
+  if (!form.area) return toast.error("Selecciona un área.");
 
-    try {
-      await ReservasAPI.reservas.create({
-        area: Number(form.area),
-        inicio,
-        fin,
-        motivo: form.motivo || "",
-        asistentes: Number(form.asistentes || 0),
-      });
-      toast.success("Reserva registrada.");
-      setForm(f => ({ ...f, motivo: "", asistentes: 0 }));
-      fetchReservas();
-    } catch (e) {
-      console.error(e);
-      toast.error("No se pudo crear la reserva (¿solapamiento o fuera de horario?).");
-    }
+  // Construimos dayjs sin plugins y comparamos por milisegundos
+  const start = dayjs(`${form.fecha}T${form.inicio}`);
+  const end   = dayjs(`${form.fecha}T${form.fin}`);
+
+  if (!start.isValid() || !end.isValid()) {
+    return toast.error("Fecha/hora inválidas.");
   }
+  if (end.valueOf() <= start.valueOf()) {
+    return toast.error("Fin debe ser mayor al inicio.");
+  }
+
+  try {
+    await ReservasAPI.reservas.create({
+      area: Number(form.area),
+      inicio: start.toISOString(),
+      fin: end.toISOString(),
+      motivo: form.motivo || "",
+      asistentes: Number(form.asistentes || 0),
+    });
+    toast.success("Reserva registrada.");
+    setForm(f => ({ ...f, motivo: "", asistentes: 0 }));
+    fetchReservas();
+  } catch (e) {
+    console.error(e);
+    toast.error("No se pudo crear la reserva (¿solapamiento o fuera de horario?).");
+  }
+}
+
 
   async function onCancelar(id) {
     try {

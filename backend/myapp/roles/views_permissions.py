@@ -1,102 +1,108 @@
 # myapp/roles/views_permissions.py
-from django.contrib.auth.models import Group, Permission
+from django.contrib.auth.models import Permission, Group
 from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import status, permissions, serializers
+from django.shortcuts import get_object_or_404
 
-from .serializers import PermissionSerializer
+from .models import Roles  # tu tabla propia
 
+# ---- Serializer para exponer permisos ----
+class PermissionSerializer(serializers.ModelSerializer):
+    app_label = serializers.CharField(source="content_type.app_label", read_only=True)
+    model     = serializers.CharField(source="content_type.model", read_only=True)
+
+    class Meta:
+        model  = Permission
+        fields = ("id", "name", "codename", "app_label", "model")
+
+# ---- Helpers ----
+def resolve_group_from_any_id(group_or_role_id: int) -> Group:
+    """
+    Si existe un Group con ese id => lo usamos.
+    Si no, probamos si es id de tu tabla 'roles' y mapeamos por nombre:
+       Group.name == Roles.nombre
+    Si no existe, lo creamos (para poder asignar permisos).
+    """
+    grp = Group.objects.filter(id=group_or_role_id).first()
+    if grp:
+        return grp
+
+    role = Roles.objects.filter(id=group_or_role_id).first()
+    if not role:
+        raise serializers.ValidationError("No existe Group ni Roles con ese id")
+
+    grp, _ = Group.objects.get_or_create(name=role.nombre)
+    return grp
+
+# ---- 1) Listado de permisos ----
 class PermissionListView(APIView):
-    """
-    GET /api/roles/permisos/?q=&app=&model=
-    Lista el catálogo completo de permisos (con filtros).
-    """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        q     = (request.GET.get("q") or "").strip()
-        app   = (request.GET.get("app") or "").strip()
-        model = (request.GET.get("model") or "").strip()
+        qs = Permission.objects.select_related("content_type").order_by("content_type__app_label", "codename")
+        data = PermissionSerializer(qs, many=True).data
+        return Response(data)
 
-        qs = Permission.objects.select_related("content_type").all()
+    # crear permiso manual (opcional)
+    def post(self, request):
+        name      = request.data.get("name", "").strip()
+        codename  = request.data.get("codename", "").strip()
+        app_label = request.data.get("app_label", "").strip()
+        model     = request.data.get("model", "").strip()
 
-        if q:
-            qs = qs.filter(Q(name__icontains=q) | Q(codename__icontains=q))
-        if app:
-            qs = qs.filter(content_type__app_label=app)
-        if model:
-            qs = qs.filter(content_type__model=model)
+        if not all([name, codename, app_label, model]):
+            return Response({"detail": "Faltan campos"}, status=400)
 
-        qs = qs.order_by("content_type__app_label", "content_type__model", "codename")
-        return Response(PermissionSerializer(qs, many=True).data, status=200)
+        ct = ContentType.objects.filter(app_label=app_label, model=model).first()
+        if not ct:
+            return Response({"detail": "ContentType no existe (app/model)"}, status=400)
 
+        if Permission.objects.filter(codename=codename, content_type=ct).exists():
+            return Response({"detail": "Ya existe ese codename para ese content_type"}, status=400)
+
+        perm = Permission.objects.create(name=name, codename=codename, content_type=ct)
+        return Response(PermissionSerializer(perm).data, status=201)
+
+# ---- 2) Borrado individual de permiso ----
+class PermissionDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, pk: int):
+        perm = get_object_or_404(Permission, pk=pk)
+        perm.delete()
+        return Response(status=204)
+
+# ---- 3) Sync del catálogo (reconstruye permisos default de Django) ----
 class PermissionSyncView(APIView):
-    """
-    POST /api/roles/permisos/sync/
-    Reconstruye catálogo (asegura que existan codenames CRUD para cada modelo).
-    *Sólo staff/superuser*.
-    """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        # Fuerza a regenerar permisos de modelos
+        from django.core.management import call_command
+        call_command("makemigrations", interactive=False, check=True)  # no crea archivos si no hay cambios
+        call_command("migrate", interactive=False)
+        # Django crea/actualiza permisos en la señal post_migrate
+        return Response({"status": "ok"})
 
-        created = 0
-        defaults = {
-            "add":    "Puede crear {model}",
-            "change": "Puede cambiar {model}",
-            "delete": "Puede eliminar {model}",
-            "view":   "Puede ver {model}",
-        }
-
-        for ct in ContentType.objects.all():
-            # crea los 4 permisos estándar si no existen
-            for code, label_tpl in defaults.items():
-                codename = f"{code}_{ct.model}"
-                if not Permission.objects.filter(codename=codename, content_type=ct).exists():
-                    Permission.objects.create(
-                        codename=codename,
-                        name=label_tpl.format(model=ct.model),
-                        content_type=ct
-                    )
-                    created += 1
-
-        return Response({"ok": True, "created": created}, status=200)
-
+# ---- 4) Permisos por grupo ----
 class GroupPermissionsView(APIView):
-    """
-    GET    /api/roles/<group_id>/permisos/
-    POST   /api/roles/<group_id>/permisos/      body: { "permission_id": 123 }
-    DELETE /api/roles/<group_id>/permisos/<perm_id>/
-    """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, group_id):
-        group = Group.objects.get(pk=group_id)
-        perms = group.permissions.select_related("content_type").all()
-        return Response(PermissionSerializer(perms, many=True).data, status=200)
+    def get(self, request, group_id: int):
+        grp = resolve_group_from_any_id(group_id)
+        perms = grp.permissions.select_related("content_type").all().order_by("content_type__app_label", "codename")
+        return Response(PermissionSerializer(perms, many=True).data)
 
-    def post(self, request, group_id):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    def post(self, request, group_id: int, perm_id: int):
+        grp  = resolve_group_from_any_id(group_id)
+        perm = get_object_or_404(Permission, pk=perm_id)
+        grp.permissions.add(perm)
+        return Response({"status": "added"}, status=201)
 
-        perm_id = request.data.get("permission_id")
-        if not perm_id:
-            return Response({"detail": "permission_id requerido"}, status=400)
-
-        group = Group.objects.get(pk=group_id)
-        perm  = Permission.objects.get(pk=perm_id)
-        group.permissions.add(perm)
-        return Response({"ok": True}, status=201)
-
-    def delete(self, request, group_id, perm_id):
-        if not (request.user.is_staff or request.user.is_superuser):
-            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
-        group = Group.objects.get(pk=group_id)
-        perm  = Permission.objects.get(pk=perm_id)
-        group.permissions.remove(perm)
+    def delete(self, request, group_id: int, perm_id: int):
+        grp  = resolve_group_from_any_id(group_id)
+        perm = get_object_or_404(Permission, pk=perm_id)
+        grp.permissions.remove(perm)
         return Response(status=204)

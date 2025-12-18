@@ -39,5 +39,8 @@ urlpatterns = [
     path("seguridad/", include("myapp.seguridad.urls")),
     path("mantenimiento/", include("myapp.mantenimiento.urls")),
     
+    #Pagos BNB
+    path("pagos/<int:pk>/iniciar_qr_bnb/",  PagoViewSet.as_view({"post":"iniciar_qr_bnb"})),
+    path("pagos/<int:pk>/estado_qr_bnb/",   PagoViewSet.as_view({"get":"estado_qr_bnb"})),
 
 ]

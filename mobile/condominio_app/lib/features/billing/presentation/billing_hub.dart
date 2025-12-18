@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'consultar_tab.dart';
+import 'pagar_tab.dart';
+import 'historial_tab.dart';
 
 class BillingHub extends StatefulWidget {
   final int initialTab; // 0=consultar, 1=pagar, 2=historial
@@ -8,13 +11,18 @@ class BillingHub extends StatefulWidget {
   State<BillingHub> createState() => _BillingHubState();
 }
 
-class _BillingHubState extends State<BillingHub> with SingleTickerProviderStateMixin {
+class _BillingHubState extends State<BillingHub>
+    with SingleTickerProviderStateMixin {
   late TabController _tab;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this, initialIndex: widget.initialTab);
+    _tab = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 2),
+    );
   }
 
   @override
@@ -40,18 +48,11 @@ class _BillingHubState extends State<BillingHub> with SingleTickerProviderStateM
       body: TabBarView(
         controller: _tab,
         children: const [
-          _Placeholder(text: 'Listado de cuotas y servicios'),
-          _Placeholder(text: 'Flujo de pago en línea'),
-          _Placeholder(text: 'Historial y comprobantes'),
+          ConsultarTab(),
+          PagarTab(), // ← ya es un widget válido y const
+          HistorialTab(),
         ],
       ),
     );
   }
-}
-
-class _Placeholder extends StatelessWidget {
-  final String text;
-  const _Placeholder({required this.text, super.key});
-  @override
-  Widget build(BuildContext context) => Center(child: Text(text));
 }
