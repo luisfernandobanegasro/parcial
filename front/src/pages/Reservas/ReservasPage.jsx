@@ -8,7 +8,7 @@ import { ROLES } from "../../auth/rbac";
 
 export default function ReservasPage() {
   const { me, hasAnyRole } = useSession();
-  // Variable de control de permisos para ver la pestaña de Áreas y gestionar estados
+  // Usamos la lógica nueva de permisos que te gustó
   const canManage = !!(me?.is_staff || me?.is_superuser || (hasAnyRole && hasAnyRole([ROLES.ADMIN])));
   const [tab, setTab] = useState("res"); // "res" | "areas"
 
@@ -36,14 +36,14 @@ export default function ReservasPage() {
         )}
       </div>
 
-      {/* Renderizado Condicional de Componentes */}
+      {/* Renderizado: Nueva ReservasTab + Antigua AreasTab */}
       {tab === "res" ? <ReservasTab canManage={canManage} /> : <AreasTab />}
     </div>
   );
 }
 
 /* =========================
- * TAB: RESERVAS (Gestión de estados)
+ * TAB: RESERVAS (NUEVO - con Gestión de estados)
  * ========================= */
 function ReservasTab({ canManage }) {
   const [areas, setAreas] = useState([]);
@@ -90,7 +90,7 @@ function ReservasTab({ canManage }) {
   useEffect(() => { fetchAreas(); }, []);
   useEffect(() => { fetchReservas(); }, [params]);
 
-  // Acciones de Gestión de Reserva
+  // --- Acciones de Gestión (Aprobar/Rechazar) ---
   async function onConfirmar(id) {
     try {
       await ReservasAPI.reservas.confirmar(id);
@@ -262,7 +262,7 @@ function ReservasTab({ canManage }) {
 }
 
 /* =========================
- * TAB: ÁREAS (CRUD Admin)
+ * TAB: ÁREAS (ANTIGUO - Restaurado completo)
  * ========================= */
 function AreasTab() {
   const [rows, setRows] = useState([]);
@@ -275,6 +275,7 @@ function AreasTab() {
     requiere_pago: false,
     costo_base: "0.00",
     condominio_id: "",
+    // Política completa (restaurada)
     p_apertura: "08:00",
     p_cierre: "22:00",
     p_duracion_min: 60,
@@ -285,6 +286,7 @@ function AreasTab() {
   });
   const editing = form.id !== null;
 
+  // ---- helpers JSON<->UI ----
   function policyFromJson(json) {
     const p = json || {};
     return {
@@ -297,7 +299,6 @@ function AreasTab() {
       p_permitir_solape: !!p.permitir_solape,
     };
   }
-
   function policyToJson(state) {
     return {
       horario: { apertura: state.p_apertura, cierre: state.p_cierre },
@@ -315,12 +316,11 @@ function AreasTab() {
       const data = await ReservasAPI.areas.list({ page_size: 200 });
       setRows(data?.results || data || []);
     } catch {
-      toast.error("Error al cargar configuración de áreas.");
+      toast.error("No se pudieron cargar las áreas.");
     } finally {
       setLoading(false);
     }
   }
-
   useEffect(() => { fetchAreas(); }, []);
 
   async function onSubmit(e) {
@@ -336,10 +336,10 @@ function AreasTab() {
       };
       if (editing) {
         await ReservasAPI.areas.update(form.id, payload);
-        toast.success("Área actualizada correctamente.");
+        toast.success("Área actualizada");
       } else {
         await ReservasAPI.areas.create(payload);
-        toast.success("Nueva área creada.");
+        toast.success("Área creada");
       }
       setForm(f => ({
         id: null, nombre: "", capacidad: 0, requiere_pago: false, costo_base: "0.00", condominio_id: "",
@@ -347,15 +347,16 @@ function AreasTab() {
       }));
       fetchAreas();
     } catch (e) {
-      toast.error("Error al guardar. Asegúrese de ser Staff en el Backend.");
+      console.error(e);
+      toast.error("Error al guardar el área.");
     }
   }
 
   async function onDelete(id) {
-    if (!window.confirm("¿Está seguro de eliminar esta área? Se perderá la configuración.")) return;
+    if (!window.confirm("¿Eliminar área?")) return;
     try {
       await ReservasAPI.areas.remove(id);
-      toast.success("Área eliminada.");
+      toast.success("Área eliminada");
       fetchAreas();
     } catch {
       toast.error("No se pudo eliminar el área.");
@@ -364,104 +365,145 @@ function AreasTab() {
 
   return (
     <div className="space-y-4">
-      {/* Formulario de Configuración de Área */}
-      <form onSubmit={onSubmit} className="border rounded p-4 bg-white shadow-sm space-y-4">
-        <h4 className="font-bold text-gray-800 border-b pb-2">{editing ? "Editar Configuración de Área" : "Crear Nueva Área Común"}</h4>
+      {/* Formulario (VERSIÓN ORIGINAL COMPLETA) */}
+      <form onSubmit={onSubmit} className="border rounded p-3 bg-white space-y-2">
+        <h4 className="font-semibold">{editing ? "Editar área" : "Nueva área"}</h4>
 
-        <div className="grid md:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-2">
           <div>
-            <label className="text-sm font-medium">Nombre del Área</label>
-            <input className="input w-full mt-1" value={form.nombre} onChange={e=>setForm(f=>({...f, nombre:e.target.value}))} required/>
+            <label className="text-sm">Nombre</label>
+            <input className="input" value={form.nombre} onChange={e=>setForm(f=>({...f, nombre:e.target.value}))}/>
           </div>
           <div>
-            <label className="text-sm font-medium">Capacidad Máxima</label>
-            <input type="number" min={0} className="input w-full mt-1" value={form.capacidad} onChange={e=>setForm(f=>({...f, capacidad:e.target.value}))}/>
+            <label className="text-sm">Capacidad</label>
+            <input type="number" min={0} className="input" value={form.capacidad} onChange={e=>setForm(f=>({...f, capacidad:e.target.value}))}/>
           </div>
           <div>
-            <label className="text-sm font-medium">Costo Base ($)</label>
-            <input className="input w-full mt-1" value={form.costo_base} onChange={e=>setForm(f=>({...f, costo_base:e.target.value}))}/>
+            <label className="text-sm">Condominio ID (opcional)</label>
+            <input className="input" value={form.condominio_id} onChange={e=>setForm(f=>({...f, condominio_id:e.target.value}))}/>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input id="chk" type="checkbox" checked={form.requiere_pago} onChange={e=>setForm(f=>({...f, requiere_pago:e.target.checked}))}/>
+            <label htmlFor="chk">Requiere pago</label>
+          </div>
+          <div>
+            <label className="text-sm">Costo base</label>
+            <input className="input" value={form.costo_base} onChange={e=>setForm(f=>({...f, costo_base:e.target.value}))}/>
           </div>
         </div>
 
-        <div className="bg-blue-50 p-3 rounded grid md:grid-cols-3 gap-4">
+        {/* Política (Restaurado para mostrar todos los campos) */}
+        <div className="mt-3 grid md:grid-cols-3 gap-2">
           <div>
-            <label className="text-sm font-medium">Hora Apertura</label>
-            <input type="time" className="input w-full" value={form.p_apertura} onChange={e=>setForm(f=>({...f, p_apertura:e.target.value}))}/>
+            <label className="text-sm">Apertura (HH:mm)</label>
+            <input type="time" className="input" value={form.p_apertura} onChange={e=>setForm(f=>({...f, p_apertura:e.target.value}))}/>
           </div>
           <div>
-            <label className="text-sm font-medium">Hora Cierre</label>
-            <input type="time" className="input w-full" value={form.p_cierre} onChange={e=>setForm(f=>({...f, p_cierre:e.target.value}))}/>
+            <label className="text-sm">Cierre (HH:mm)</label>
+            <input type="time" className="input" value={form.p_cierre} onChange={e=>setForm(f=>({...f, p_cierre:e.target.value}))}/>
           </div>
           <div>
-            <label className="text-sm font-medium">Bloque (minutos)</label>
-            <input type="number" step={15} className="input w-full" value={form.p_duracion_min} onChange={e=>setForm(f=>({...f, p_duracion_min:e.target.value}))}/>
+            <label className="text-sm">Duración por bloque (min)</label>
+            <input type="number" min={15} step={15} className="input" value={form.p_duracion_min} onChange={e=>setForm(f=>({...f, p_duracion_min:e.target.value}))}/>
+          </div>
+          <div>
+            <label className="text-sm">Máx. anticipación (días)</label>
+            <input type="number" min={0} className="input" value={form.p_max_anticipacion_dias} onChange={e=>setForm(f=>({...f, p_max_anticipacion_dias:e.target.value}))}/>
+          </div>
+          <div>
+            <label className="text-sm">Máx. reservas por día</label>
+            <input type="number" min={1} className="input" value={form.p_max_por_dia} onChange={e=>setForm(f=>({...f, p_max_por_dia:e.target.value}))}/>
+          </div>
+          <div className="flex items-center gap-2">
+            <input id="chk2" type="checkbox" checked={form.p_requiere_aprobacion} onChange={e=>setForm(f=>({...f, p_requiere_aprobacion:e.target.checked}))}/>
+            <label htmlFor="chk2">Requiere aprobación</label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input id="chk3" type="checkbox" checked={form.p_permitir_solape} onChange={e=>setForm(f=>({...f, p_permitir_solape:e.target.checked}))}/>
+            <label htmlFor="chk3">Permitir solapes</label>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-6 text-sm">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="w-4 h-4" checked={form.requiere_pago} onChange={e=>setForm(f=>({...f, requiere_pago:e.target.checked}))}/>
-            Requiere Pago
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="w-4 h-4" checked={form.p_requiere_aprobacion} onChange={e=>setForm(f=>({...f, p_requiere_aprobacion:e.target.checked}))}/>
-            Requiere Aprobación Admin
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="w-4 h-4" checked={form.p_permitir_solape} onChange={e=>setForm(f=>({...f, p_permitir_solape:e.target.checked}))}/>
-            Permitir Solapamientos
-          </label>
-        </div>
-
-        <div className="flex gap-2 justify-end pt-2">
+        <div className="flex gap-2 justify-end mt-2">
           {editing && (
-            <button type="button" className="px-4 py-2 border rounded text-gray-600 hover:bg-gray-50" 
-              onClick={()=>setForm(f=>({ id:null, nombre:"", capacidad:0, requiere_pago:false, costo_base:"0.00", condominio_id:"", ...policyFromJson(null) }))}>
+            <button
+              type="button"
+              className="btn"
+              onClick={()=>setForm(f=>({
+                id:null, nombre:"", capacidad:0, requiere_pago:false, costo_base:"0.00", condominio_id:"",
+                ...policyFromJson(null),
+              }))}
+            >
               Cancelar
             </button>
           )}
-          <button className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold" type="submit">
-            {editing ? "Guardar Cambios" : "Crear Área"}
+          <button className="btn btn-primary" type="submit">
+            {editing ? "Actualizar" : "Crear"}
           </button>
         </div>
       </form>
 
-      {/* Tabla de Áreas Existentes */}
-      <div className="border rounded bg-white overflow-hidden shadow-sm">
-        <div className="p-3 bg-gray-50 font-bold text-gray-700 border-b">Listado de Áreas Configuradas</div>
+      {/* Tabla Original */}
+      <div className="border rounded bg-white">
+        <div className="p-2 font-semibold border-b">Áreas registradas</div>
         {loading ? (
-          <div className="p-5 text-center">Cargando áreas...</div>
+          <div className="p-3">Cargando…</div>
+        ) : rows.length === 0 ? (
+          <div className="p-3">Sin áreas creadas.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
-                <tr>
-                  <th className="p-3 text-left">Área</th>
-                  <th className="p-3 text-left">Cap.</th>
-                  <th className="p-3 text-left">Costo</th>
-                  <th className="p-3 text-left">Horario</th>
-                  <th className="p-3 text-center">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map(r => (
-                  <tr key={r.id} className="border-b hover:bg-gray-50">
-                    <td className="p-3 font-medium">{r.nombre}</td>
-                    <td className="p-3">{r.capacidad}</td>
-                    <td className="p-3">${r.costo_base} {r.requiere_pago && "(Pago)"}</td>
-                    <td className="p-3">{r.politica?.horario?.apertura} - {r.politica?.horario?.cierre}</td>
-                    <td className="p-3 flex justify-center gap-2">
-                      <button className="text-blue-600 hover:underline" 
-                        onClick={() => setForm({ id: r.id, nombre: r.nombre, capacidad: r.capacidad, requiere_pago: r.requiere_pago, costo_base: r.costo_base, condominio_id: r.condominio_id || "", ...policyFromJson(r.politica) })}>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left p-2">Nombre</th>
+                <th className="text-left p-2">Cap.</th>
+                <th className="text-left p-2">Pago</th>
+                <th className="text-left p-2">Costo</th>
+                <th className="text-left p-2">Horario</th>
+                <th className="text-left p-2">Bloque</th>
+                <th className="text-left p-2">Límites</th>
+                <th className="text-left p-2">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => {
+                const pol = r.politica || {};
+                const horario = pol.horario ? `${pol.horario.apertura || "—"}–${pol.horario.cierre || "—"}` : "—";
+                const bloque = pol.duracion_min ? `${pol.duracion_min} min` : "—";
+                const limites = `Ant.: ${pol.max_anticipacion_dias ?? "—"}d • xDía: ${pol.max_por_dia ?? "—"} • Aprob.: ${pol.requiere_aprobacion ? "Sí" : "No"} • Solape: ${pol.permitir_solape ? "Sí" : "No"}`;
+                return (
+                  <tr key={r.id} className="border-b">
+                    <td className="p-2">{r.nombre}</td>
+                    <td className="p-2">{r.capacidad}</td>
+                    <td className="p-2">{r.requiere_pago ? "Sí" : "No"}</td>
+                    <td className="p-2">{r.costo_base}</td>
+                    <td className="p-2">{horario}</td>
+                    <td className="p-2">{bloque}</td>
+                    <td className="p-2">{limites}</td>
+                    <td className="p-2 flex gap-2">
+                      <button
+                        className="btn"
+                        onClick={() =>
+                          setForm({
+                            id: r.id,
+                            nombre: r.nombre,
+                            capacidad: r.capacidad,
+                            requiere_pago: r.requiere_pago,
+                            costo_base: r.costo_base,
+                            condominio_id: r.condominio_id || "",
+                            ...policyFromJson(r.politica),
+                          })
+                        }
+                      >
                         Editar
                       </button>
-                      <button className="text-red-600 hover:underline" onClick={() => onDelete(r.id)}>Eliminar</button>
+                      <button className="btn" onClick={() => onDelete(r.id)}>Eliminar</button>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
