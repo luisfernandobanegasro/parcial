@@ -7,8 +7,6 @@ from pathlib import Path
 from datetime import timedelta
 import os
 from dotenv import load_dotenv  # pip install python-dotenv
-import firebase_admin
-from firebase_admin import credentials
 
 # ======================================
 # BASE
@@ -46,8 +44,8 @@ ALLOWED_HOSTS = (
     [h.strip() for h in _env_hosts.split(",") if h.strip()]
     if _env_hosts
     else [
-        "condominio-env.eba-swap7msp.us-east-1.elasticbeanstalk.com",
-        "d29i2t14lmkp5i.cloudfront.net",
+        'condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com',
+        'main.d2uzerihejwi44.amplifyapp.com',
         "*", "127.0.0.1", "localhost"
     ]
 )
@@ -189,7 +187,7 @@ else:
         "http://localhost:8080",
         "http://127.0.0.1:8080",
         "http://192.168.0.200:8000",
-        "https://d29i2t14lmkp5i.cloudfront.net",
+        "https://main.d2uzerihejwi44.amplifyapp.com",
     ]
 
 _env_csrf = os.getenv("CSRF_TRUSTED_ORIGINS")
@@ -269,8 +267,4 @@ BNB_CFG = {
     "TIMEOUT": int(os.getenv("BNB_TIMEOUT", "15")),
 }
 # ======================================
-FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")  # ruta a tu service-account.json
 
-if FIREBASE_CREDENTIALS_PATH and not firebase_admin._apps:
-    cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-    firebase_admin.initialize_app(cred)

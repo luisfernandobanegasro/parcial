@@ -3,7 +3,7 @@ import axios from "axios";
 const BASE =
   process.env.REACT_APP_API_BASE ||
   (typeof window !== "undefined" && window.__APP_API_BASE__) ||
-  "https://d29i2t14lmkp5i.cloudfront.net";
+  "condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com";
 
 export const api = axios.create({
   baseURL: BASE.replace(/\/$/, ""),
