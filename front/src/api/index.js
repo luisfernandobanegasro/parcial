@@ -3,8 +3,7 @@ import axios from "axios";
 const BASE =
   process.env.REACT_APP_API_BASE ||
   (typeof window !== "undefined" && window.__APP_API_BASE__) ||
-  "condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com";
-
+  "https://condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com"; // <--- AGREGADO https://
 export const api = axios.create({
   baseURL: BASE.replace(/\/$/, ""),
   timeout: 15000,
