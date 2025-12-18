@@ -190,10 +190,15 @@ else:
         "https://main.d2uzerihejwi44.amplifyapp.com",
     ]
 
+# Busca esta parte al final de tu settings.py y déjala así:
 _env_csrf = os.getenv("CSRF_TRUSTED_ORIGINS")
 if _env_csrf:
     CSRF_TRUSTED_ORIGINS = [u.strip() for u in _env_csrf.split(",") if u.strip()]
-
+else:
+    # Agrega tu URL de Amplify por defecto aquí
+    CSRF_TRUSTED_ORIGINS = [
+        "https://main.d2uzerihejwi44.amplifyapp.com",
+    ]
 # ======================================
 # DRF + SimpleJWT
 # ======================================
