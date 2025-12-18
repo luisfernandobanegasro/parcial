@@ -44,9 +44,11 @@ ALLOWED_HOSTS = (
     [h.strip() for h in _env_hosts.split(",") if h.strip()]
     if _env_hosts
     else [
-        'condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com',
-        'main.d2uzerihejwi44.amplifyapp.com',
-        "*", "127.0.0.1", "localhost"
+        'condominio-env.eba-ibwb3pvj.us-east-1.elasticbeanstalk.com', # Correcto
+    'main.d2uzerihejwi44.amplifyapp.com',
+    'localhost',
+    '127.0.0.1',
+    '34.206.193.179',
     ]
 )
 
